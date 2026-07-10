@@ -715,7 +715,27 @@
         </div>
     </div>
 
-    <script>
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, onValue, set, update, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDIb9OYHaQFj7oQQoHQN_n6VqL6_7DddX4",
+            authDomain: "chouqian-tool.firebaseapp.com",
+            databaseURL: "https://chouqian-tool-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "chouqian-tool",
+            storageBucket: "chouqian-tool.firebasestorage.app",
+            messagingSenderId: "965117392086",
+            appId: "1:965117392086:web:e349b908d55de84d740577"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const lotteryRef = ref(db, 'lottery');
+
         // Data
         let data = {
             lotteryItems: [],
@@ -739,29 +759,64 @@
 
         // Initialize
         function init() {
-            loadData();
-            updateUI();
-            // Show slot items if data exists (shuffled)
-            if (data.remainingItems.length > 0) {
-                buildSlotItems(true); // true = shuffle
-            }
+            // Listen to Firebase real-time updates
+            onValue(lotteryRef, (snapshot) => {
+                const firebaseData = snapshot.val();
+                if (firebaseData) {
+                    data = firebaseData;
+                } else {
+                    // Load from localStorage as fallback
+                    loadFromLocal();
+                }
+                updateUI();
+                // Show slot items if data exists (shuffled)
+                if (data.remainingItems.length > 0) {
+                    buildSlotItems(true);
+                }
+            });
         }
 
-        // Load data from localStorage
-        function loadData() {
+        // Load from localStorage (fallback)
+        function loadFromLocal() {
             const saved = localStorage.getItem('lottery_data');
             if (saved) {
                 try {
                     data = JSON.parse(saved);
+                    // Sync to Firebase
+                    saveToFirebase();
                 } catch (e) {
                     console.error('Failed to load data:', e);
                 }
             }
         }
 
-        // Save data to localStorage
-        function saveData() {
+        // Save to Firebase (real-time sync)
+        function saveToFirebase() {
+            set(lotteryRef, data);
+            // Also save to localStorage as backup
             localStorage.setItem('lottery_data', JSON.stringify(data));
+        }
+
+        // Legacy function for compatibility
+        function saveData() {
+            saveToFirebase();
+        }
+
+        // Show sync status
+        function showSyncStatus(message) {
+            // Create status element if not exists
+            let statusEl = document.getElementById('syncStatus');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'syncStatus';
+                statusEl.style.cssText = 'position:fixed;top:10px;right:10px;padding:8px 16px;background:rgba(99,102,241,0.9);color:white;border-radius:20px;font-size:12px;z-index:10000;transition:opacity 0.3s;';
+                document.body.appendChild(statusEl);
+            }
+            statusEl.textContent = message;
+            statusEl.style.opacity = '1';
+            setTimeout(() => {
+                statusEl.style.opacity = '0';
+            }, 2000);
         }
 
         // Update UI
@@ -1005,7 +1060,7 @@
                 item: winner,
                 time: formatTime(new Date())
             });
-            saveData();
+            saveToFirebase();
             updateUI();
 
             // Play effect
@@ -1168,7 +1223,7 @@
             data.lotteryItems = items;
             data.remainingItems = [...items];
             data.history = [];
-            saveData();
+            saveToFirebase();
             updateUI();
             closeSettings();
 
@@ -1193,7 +1248,7 @@
 
             data.remainingItems = [...data.lotteryItems];
             data.history = [];
-            saveData();
+            saveToFirebase();
             updateUI();
 
             // Reset display - keep showing items
