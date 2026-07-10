@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>运营进步分子 - 抽签工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-light: #818cf8;
+            --bg: #fafafa;
+            --card-bg: #ffffff;
+            --text: #171717;
+            --text-light: #737373;
+            --border: #e5e5e5;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 40px 0 30px;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            color: var(--text);
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        /* Main Card - Minimal style */
+        .main-card {
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02);
+            padding: 40px 30px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        /* Slot Machine Display - Capsule style */
+        .slot-container {
+            position: relative;
+            min-height: 140px;
+            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+            border-radius: 50px;
+            overflow: hidden;
+            margin-bottom: 30px;
+            padding: 25px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        /* Animated border beam effect */
+        .slot-container::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 52px;
+            padding: 2px;
+            background: linear-gradient(90deg, #f472b6, #a78bfa, #60a5fa, #34d399, #fbbf24, #f472b6);
+            background-size: 300% 100%;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            animation: borderBeam 3s linear infinite;
+        }
+
+        .slot-container.rolling::before {
+            opacity: 1;
+        }
+
+        @keyframes borderBeam {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
+        }
+
+        .slot-item {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--text-light);
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 25px;
+            transition: all 0.2s ease;
+            position: relative;
+            z-index: 1;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        .slot-item.active {
+            color: white;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            transform: scale(1.08);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.35);
+            z-index: 2;
+            border-color: transparent;
+        }
+
+        .slot-highlight {
+            position: absolute;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border-radius: 25px;
+            transition: all 0.1s ease-out;
+            z-index: 0;
+            opacity: 0;
+            pointer-events: none;
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.35);
+        }
+
+        .slot-highlight.show {
+            opacity: 1;
+        }
+
+        .slot-placeholder {
+            font-size: 15px;
+            color: var(--text-light);
+            text-align: center;
+        }
+
+        /* Result Display */
+        .result-container {
+            display: none;
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
+            border-radius: 50px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .result-container.show {
+            display: block;
+            animation: resultPop 0.5s ease;
+        }
+
+        @keyframes resultPop {
+            0% { transform: scale(0.9); opacity: 0; }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .result-congrats {
+            font-size: 18px;
+            color: var(--text-light);
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .result-item {
+            font-size: 32px;
+            color: var(--text);
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Draw Button - Capsule style with gradient border */
+        .draw-btn-wrapper {
+            position: relative;
+            border-radius: 50px;
+            padding: 2px;
+            background: linear-gradient(90deg, rgba(244,114,182,0.5), rgba(167,139,250,0.5), rgba(96,165,250,0.5), rgba(52,211,153,0.5), rgba(251,191,36,0.5), rgba(244,114,182,0.5));
+            background-size: 300% 100%;
+            animation: borderBeam 3s linear infinite;
+        }
+
+        .draw-btn {
+            width: 100%;
+            padding: 16px 32px;
+            font-size: 17px;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, rgba(99,102,241,0.5) 0%, rgba(139,92,246,0.5) 100%);
+            border: none;
+            border-radius: 48px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .draw-btn::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .draw-btn:hover:not(:disabled)::before {
+            opacity: 1;
+        }
+
+        .draw-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
+        }
+
+        .draw-btn:disabled {
+            background: #d4d4d4;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .draw-btn.rolling {
+            animation: pulse 0.5s ease infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(0.98); }
+        }
+
+        /* Collapsible Sections - Minimal */
+        .section {
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+            margin-bottom: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .section-header {
+            padding: 18px 24px;
+            background: transparent;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 500;
+            color: var(--text);
+            transition: background 0.2s;
+            font-size: 15px;
+        }
+
+        .section-header:hover {
+            background: rgba(0, 0, 0, 0.01);
+        }
+
+        .section-header .arrow {
+            transition: transform 0.3s ease;
+            color: var(--text-light);
+            font-size: 12px;
+        }
+
+        .section-header.collapsed .arrow {
+            transform: rotate(-90deg);
+        }
+
+        .section-content {
+            padding: 18px 24px;
+            border-top: 1px solid rgba(0, 0, 0, 0.04);
+            max-height: 300px;
+            overflow-y: auto;
+            transition: max-height 0.3s ease;
+        }
+
+        .section-content.collapsed {
+            max-height: 0;
+            padding: 0 24px;
+            border-top: none;
+        }
+
+        /* Items List */
+        .items-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .item-tag {
+            background: rgba(99, 102, 241, 0.08);
+            color: var(--primary);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .item-tag.empty {
+            color: var(--text-light);
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        /* History */
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .history-item:last-child {
+            border-bottom: none;
+        }
+
+        .history-index {
+            width: 22px;
+            height: 22px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 12px;
+        }
+
+        .history-name {
+            flex: 1;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .history-time {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .history-empty {
+            text-align: center;
+            color: var(--text-light);
+            padding: 20px;
+            font-size: 14px;
+        }
+
+        /* Bottom Actions */
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 14px;
+            font-size: 15px;
+            font-weight: 500;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .settings-btn {
+            background: rgba(0, 0, 0, 0.03);
+            color: var(--text);
+        }
+
+        .settings-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        .restart-btn {
+            background: rgba(239, 68, 68, 0.06);
+            color: #ef4444;
+        }
+
+        .restart-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Settings Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            border-radius: 24px;
+            width: 100%;
+            max-width: 480px;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        }
+
+        .modal-header {
+            padding: 24px;
+            background: transparent;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-light);
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        .modal-body {
+            padding: 24px;
+        }
+
+        .settings-hint {
+            font-size: 13px;
+            color: var(--text-light);
+            margin-bottom: 12px;
+        }
+
+        .settings-textarea {
+            width: 100%;
+            height: 180px;
+            padding: 16px;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 16px;
+            font-size: 14px;
+            resize: vertical;
+            font-family: inherit;
+            background: rgba(0, 0, 0, 0.01);
+        }
+
+        .settings-textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+        }
+
+        .modal-footer {
+            padding: 20px 24px;
+            background: transparent;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            border-top: 1px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 500;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-cancel {
+            background: rgba(0, 0, 0, 0.03);
+            color: var(--text);
+        }
+
+        .modal-btn-cancel:hover {
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        .modal-btn-save {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+        }
+
+        .modal-btn-save:hover {
+            opacity: 0.9;
+        }
+
+        /* Effects Canvas */
+        #effectsCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        /* Confetti */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #6366f1;
+            top: -10px;
+            z-index: 998;
+            animation: confetti-fall 3s ease-out forwards;
+        }
+
+        @keyframes confetti-fall {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(100vh) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        /* Stars */
+        .star {
+            position: fixed;
+            font-size: 24px;
+            z-index: 998;
+            animation: star-burst 1s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes star-burst {
+            0% {
+                transform: scale(0) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5) rotate(180deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px 16px;
+            }
+
+            .header {
+                padding: 30px 0 20px;
+            }
+
+            .header h1 {
+                font-size: 22px;
+            }
+
+            .main-card {
+                padding: 30px 20px;
+                border-radius: 20px;
+            }
+
+            .slot-container {
+                min-height: 120px;
+                padding: 20px;
+                border-radius: 40px;
+            }
+
+            .slot-container::before {
+                border-radius: 42px;
+            }
+
+            .slot-item {
+                font-size: 14px;
+                padding: 10px 18px;
+            }
+
+            .result-container {
+                border-radius: 40px;
+                padding: 24px;
+            }
+
+            .result-item {
+                font-size: 26px;
+            }
+
+            .draw-btn {
+                font-size: 16px;
+                padding: 14px 28px;
+            }
+
+            .draw-btn-wrapper {
+                border-radius: 48px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="effectsCanvas"></canvas>
+
+    <div class="container">
+        <div class="header">
+            <h1>🎯 运营进步分子</h1>
+        </div>
+
+        <div class="main-card">
+            <!-- Slot Display -->
+            <div class="slot-container" id="slotContainer">
+                <div class="slot-highlight" id="slotHighlight"></div>
+                <div class="slot-placeholder" id="slotPlaceholder">点击下方按钮开始抽签</div>
+            </div>
+
+            <!-- Result Display -->
+            <div class="result-container" id="resultContainer">
+                <div class="result-congrats">🎉 恭喜你！天命人！</div>
+                <div class="result-item" id="resultItem"></div>
+            </div>
+
+            <!-- Draw Button -->
+            <div class="draw-btn-wrapper">
+                <button class="draw-btn" id="drawBtn" onclick="startDraw()">开始抽签</button>
+            </div>
+        </div>
+
+        <!-- Remaining Items -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span id="remainingTitle">▼ 剩余可抽 (0个)</span>
+                <span class="arrow">▼</span>
+            </div>
+            <div class="section-content" id="remainingContent">
+                <div class="items-grid" id="remainingItems">
+                    <span class="item-tag empty">暂无内容，请先设置抽签内容</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- History -->
+        <div class="section">
+            <div class="section-header" onclick="toggleSection(this)">
+                <span>▼ 抽签历史</span>
+                <span class="arrow">▼</span>
+            </div>
+            <div class="section-content" id="historyContent">
+                <div class="history-empty" id="historyEmpty">暂无抽签记录</div>
+                <div id="historyList"></div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions">
+            <button class="action-btn settings-btn" onclick="openSettings()">⚙️ 设置</button>
+            <button class="action-btn restart-btn" onclick="restart()">🔄 重新开始</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title">设置抽签内容</span>
+                <button class="modal-close" onclick="closeSettings()">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="settings-hint">每行输入一个选项，输入后点击保存</p>
+                <textarea class="settings-textarea" id="settingsInput" placeholder="张三&#10;李四&#10;王五&#10;..."></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" onclick="closeSettings()">取消</button>
+                <button class="modal-btn modal-btn-save" onclick="saveSettings()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data
+        let data = {
+            lotteryItems: [],
+            remainingItems: [],
+            history: []
+        };
+
+        // DOM Elements
+        const slotContainer = document.getElementById('slotContainer');
+        const slotPlaceholder = document.getElementById('slotPlaceholder');
+        const slotHighlight = document.getElementById('slotHighlight');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultItem = document.getElementById('resultItem');
+        const drawBtn = document.getElementById('drawBtn');
+        const remainingTitle = document.getElementById('remainingTitle');
+        const remainingItems = document.getElementById('remainingItems');
+        const historyEmpty = document.getElementById('historyEmpty');
+        const historyList = document.getElementById('historyList');
+        const settingsModal = document.getElementById('settingsModal');
+        const settingsInput = document.getElementById('settingsInput');
+
+        // Initialize
+        function init() {
+            loadData();
+            updateUI();
+            // Show slot items if data exists (shuffled)
+            if (data.remainingItems.length > 0) {
+                buildSlotItems(true); // true = shuffle
+            }
+        }
+
+        // Load data from localStorage
+        function loadData() {
+            const saved = localStorage.getItem('lottery_data');
+            if (saved) {
+                try {
+                    data = JSON.parse(saved);
+                } catch (e) {
+                    console.error('Failed to load data:', e);
+                }
+            }
+        }
+
+        // Save data to localStorage
+        function saveData() {
+            localStorage.setItem('lottery_data', JSON.stringify(data));
+        }
+
+        // Update UI
+        function updateUI() {
+            updateRemaining();
+            updateHistory();
+            updateButton();
+        }
+
+        // Update remaining items display
+        function updateRemaining() {
+            remainingTitle.textContent = `▼ 剩余可抽 (${data.remainingItems.length}个)`;
+            
+            if (data.remainingItems.length === 0) {
+                remainingItems.innerHTML = '<span class="item-tag empty">暂无剩余内容</span>';
+            } else {
+                remainingItems.innerHTML = data.remainingItems.map(item => 
+                    `<span class="item-tag">${item}</span>`
+                ).join('');
+            }
+        }
+
+        // Update history display
+        function updateHistory() {
+            if (data.history.length === 0) {
+                historyEmpty.style.display = 'block';
+                historyList.innerHTML = '';
+            } else {
+                historyEmpty.style.display = 'none';
+                historyList.innerHTML = data.history.map((h, i) => `
+                    <div class="history-item">
+                        <span class="history-index">${i + 1}</span>
+                        <span class="history-name">${h.item}</span>
+                        <span class="history-time">${h.time}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Update button state
+        function updateButton() {
+            if (data.remainingItems.length === 0) {
+                drawBtn.disabled = true;
+                drawBtn.textContent = '无可抽选项';
+            } else {
+                drawBtn.disabled = false;
+                drawBtn.textContent = '开始抽签';
+            }
+        }
+
+        // Start draw
+        let isRolling = false;
+
+        function startDraw() {
+            if (isRolling || data.remainingItems.length === 0) return;
+            
+            isRolling = true;
+            drawBtn.disabled = true;
+            drawBtn.classList.add('rolling');
+            drawBtn.textContent = '抽签中...';
+            slotContainer.classList.add('rolling');
+
+            // Hide result
+            resultContainer.classList.remove('show');
+            
+            // Ensure slot items are built (with shuffle on each draw start)
+            if (document.querySelectorAll('.slot-item').length === 0) {
+                buildSlotItems(true);
+            }
+
+            // Determine winner from original data
+            const winOriginalIndex = Math.floor(Math.random() * data.remainingItems.length);
+            const winner = data.remainingItems[winOriginalIndex];
+
+            // Get all items for animation
+            const items = document.querySelectorAll('.slot-item');
+            const totalItems = items.length;
+            
+            // Calculate columns based on container width (approximate)
+            const containerWidth = slotContainer.offsetWidth;
+            const itemWidth = 100; // approximate
+            const columns = Math.floor((containerWidth - 40) / (itemWidth + 12)) || 3;
+            
+            // Get snake pattern order
+            const snakeOrder = getSnakeOrder(totalItems, columns);
+            
+            // Find winner's position in display order
+            let winDisplayIndex = -1;
+            items.forEach((item, i) => {
+                if (parseInt(item.dataset.originalIndex) === winOriginalIndex) {
+                    winDisplayIndex = i;
+                }
+            });
+
+            // Start from random position in snake order
+            let snakePosition = Math.floor(Math.random() * snakeOrder.length);
+            let currentIndex = snakeOrder[snakePosition];
+            highlightSlotItem(currentIndex);
+
+            // Start rolling animation - snake pattern
+            const duration = 3500;
+            const startTime = Date.now();
+            let lastStepTime = startTime;
+
+            function animate() {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const now = Date.now();
+                
+                // Calculate delay based on progress (ease-out effect)
+                let delay;
+                if (progress < 0.2) {
+                    delay = 120; // Start slower
+                } else if (progress < 0.4) {
+                    delay = 120; // Keep stable
+                } else if (progress < 0.55) {
+                    delay = 150; // Slightly slower
+                } else if (progress < 0.7) {
+                    delay = 200; // Slow
+                } else if (progress < 0.82) {
+                    delay = 300; // Slower
+                } else if (progress < 0.92) {
+                    delay = 450; // Very slow
+                } else {
+                    delay = 600; // Final approach
+                }
+
+                if (now - lastStepTime >= delay) {
+                    // Move to next position in snake order
+                    snakePosition = (snakePosition + 1) % snakeOrder.length;
+                    currentIndex = snakeOrder[snakePosition];
+                    
+                    highlightSlotItem(currentIndex);
+                    lastStepTime = now;
+                }
+
+                // Continue animation until time is up AND we're on the winner
+                const onWinner = currentIndex === winDisplayIndex;
+                const timeUp = progress >= 1;
+                
+                if (!timeUp || !onWinner) {
+                    requestAnimationFrame(animate);
+                } else {
+                    // Animation complete
+                    highlightSlotItem(winDisplayIndex);
+                    setTimeout(() => finishDraw(winner, winOriginalIndex), 500);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Shuffle array (Fisher-Yates algorithm)
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        // Get display order for snake pattern animation
+        function getSnakeOrder(totalItems, columns) {
+            const rows = Math.ceil(totalItems / columns);
+            const order = [];
+            
+            for (let row = 0; row < rows; row++) {
+                if (row % 2 === 0) {
+                    // Even row: left to right
+                    for (let col = 0; col < columns; col++) {
+                        const index = row * columns + col;
+                        if (index < totalItems) {
+                            order.push(index);
+                        }
+                    }
+                } else {
+                    // Odd row: right to left
+                    for (let col = columns - 1; col >= 0; col--) {
+                        const index = row * columns + col;
+                        if (index < totalItems) {
+                            order.push(index);
+                        }
+                    }
+                }
+            }
+            return order;
+        }
+
+        function buildSlotItems(shuffle = false) {
+            // Shuffle items for display if requested
+            let displayItems = shuffle ? shuffleArray(data.remainingItems) : data.remainingItems;
+            
+            // Keep highlight div and add items
+            slotContainer.innerHTML = '<div class="slot-highlight" id="slotHighlight"></div>' +
+                displayItems.map((item, i) => 
+                    `<div class="slot-item" data-index="${i}" data-original-index="${data.remainingItems.indexOf(item)}">${item}</div>`
+                ).join('');
+            // Re-get highlight element after rebuild
+            window.slotHighlightEl = document.getElementById('slotHighlight');
+            
+            // Store display order for animation
+            window.displayItemsOrder = displayItems;
+        }
+
+        function highlightSlotItem(index) {
+            const items = document.querySelectorAll('.slot-item');
+            const highlight = window.slotHighlightEl || document.getElementById('slotHighlight');
+            
+            items.forEach((item, i) => {
+                if (parseInt(item.dataset.index) === index) {
+                    item.classList.add('active');
+                    // Position highlight over this item
+                    const rect = item.getBoundingClientRect();
+                    const containerRect = slotContainer.getBoundingClientRect();
+                    highlight.style.left = (rect.left - containerRect.left + slotContainer.scrollLeft) + 'px';
+                    highlight.style.top = (rect.top - containerRect.top + slotContainer.scrollTop) + 'px';
+                    highlight.style.width = rect.width + 'px';
+                    highlight.style.height = rect.height + 'px';
+                    highlight.classList.add('show');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
+
+        function finishDraw(winner, winIndex) {
+            isRolling = false;
+            drawBtn.classList.remove('rolling');
+            slotContainer.classList.remove('rolling');
+
+            // Show result
+            slotContainer.innerHTML = '<div class="slot-highlight" id="slotHighlight"></div>';
+            slotPlaceholder.style.display = 'none';
+            resultItem.textContent = winner;
+            resultContainer.classList.add('show');
+
+            // Update data
+            data.remainingItems.splice(winIndex, 1);
+            data.history.unshift({
+                item: winner,
+                time: formatTime(new Date())
+            });
+            saveData();
+            updateUI();
+
+            // Play effect
+            playRandomEffect();
+        }
+
+        // Play random effect
+        function playRandomEffect() {
+            const effects = ['confetti', 'stars', 'fireworks'];
+            const effect = effects[Math.floor(Math.random() * effects.length)];
+            
+            switch (effect) {
+                case 'confetti':
+                    playConfetti();
+                    break;
+                case 'stars':
+                    playStars();
+                    break;
+                case 'fireworks':
+                    playFireworks();
+                    break;
+            }
+        }
+
+        // Confetti effect
+        function playConfetti() {
+            const colors = ['#6366f1', '#8b5cf6', '#a78bfa', '#f472b6', '#60a5fa', '#34d399'];
+            for (let i = 0; i < 50; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + 'vw';
+                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
+                    confetti.style.width = (Math.random() * 10 + 5) + 'px';
+                    confetti.style.height = (Math.random() * 10 + 5) + 'px';
+                    confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '0';
+                    document.body.appendChild(confetti);
+                    
+                    setTimeout(() => confetti.remove(), 3000);
+                }, i * 50);
+            }
+        }
+
+        // Stars effect
+        function playStars() {
+            const stars = ['⭐', '🌟', '✨', '💫', '🎉', '🎊'];
+            for (let i = 0; i < 20; i++) {
+                setTimeout(() => {
+                    const star = document.createElement('div');
+                    star.className = 'star';
+                    star.textContent = stars[Math.floor(Math.random() * stars.length)];
+                    star.style.left = (Math.random() * 80 + 10) + 'vw';
+                    star.style.top = (Math.random() * 60 + 20) + 'vh';
+                    document.body.appendChild(star);
+                    
+                    setTimeout(() => star.remove(), 1000);
+                }, i * 100);
+            }
+        }
+
+        // Fireworks effect (Canvas)
+        function playFireworks() {
+            const canvas = document.getElementById('effectsCanvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = [];
+            const colors = ['#6366f1', '#8b5cf6', '#a78bfa', '#f472b6', '#60a5fa'];
+
+            function createFirework(x, y) {
+                for (let i = 0; i < 50; i++) {
+                    const angle = (Math.PI * 2 / 50) * i;
+                    const velocity = 2 + Math.random() * 3;
+                    particles.push({
+                        x: x,
+                        y: y,
+                        vx: Math.cos(angle) * velocity,
+                        vy: Math.sin(angle) * velocity,
+                        life: 1,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        size: 2 + Math.random() * 2
+                    });
+                }
+            }
+
+            // Create multiple fireworks
+            for (let i = 0; i < 3; i++) {
+                setTimeout(() => {
+                    createFirework(
+                        Math.random() * canvas.width * 0.6 + canvas.width * 0.2,
+                        Math.random() * canvas.height * 0.4 + canvas.height * 0.2
+                    );
+                }, i * 300);
+            }
+
+            function animateFireworks() {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.05;
+                    p.life -= 0.015;
+
+                    if (p.life <= 0) {
+                        particles.splice(i, 1);
+                        continue;
+                    }
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.life;
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+
+                if (particles.length > 0) {
+                    requestAnimationFrame(animateFireworks);
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            }
+
+            animateFireworks();
+        }
+
+        // Toggle section
+        function toggleSection(header) {
+            header.classList.toggle('collapsed');
+            const content = header.nextElementSibling;
+            content.classList.toggle('collapsed');
+        }
+
+        // Open settings
+        function openSettings() {
+            settingsInput.value = data.lotteryItems.join('\n');
+            settingsModal.classList.add('show');
+        }
+
+        // Close settings
+        function closeSettings() {
+            settingsModal.classList.remove('show');
+        }
+
+        // Save settings
+        function saveSettings() {
+            const input = settingsInput.value.trim();
+            const items = input.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+            
+            if (items.length === 0) {
+                alert('请至少输入一个选项');
+                return;
+            }
+
+            data.lotteryItems = items;
+            data.remainingItems = [...items];
+            data.history = [];
+            saveData();
+            updateUI();
+            closeSettings();
+
+            // Reset display - keep showing items
+            slotContainer.innerHTML = '<div class="slot-highlight" id="slotHighlight"></div>' +
+                data.remainingItems.map((item, i) => 
+                    `<div class="slot-item" data-index="${i}" data-original-index="${i}">${item}</div>`
+                ).join('');
+            resultContainer.classList.remove('show');
+        }
+
+        // Restart
+        function restart() {
+            if (data.lotteryItems.length === 0) {
+                alert('请先设置抽签内容');
+                return;
+            }
+
+            if (!confirm('确定要重新开始吗？这将清除所有抽签记录。')) {
+                return;
+            }
+
+            data.remainingItems = [...data.lotteryItems];
+            data.history = [];
+            saveData();
+            updateUI();
+
+            // Reset display - keep showing items
+            slotContainer.innerHTML = '<div class="slot-highlight" id="slotHighlight"></div>' +
+                data.remainingItems.map((item, i) => 
+                    `<div class="slot-item" data-index="${i}" data-original-index="${i}">${item}</div>`
+                ).join('');
+            resultContainer.classList.remove('show');
+        }
+
+        // Format time
+        function formatTime(date) {
+            const pad = n => n.toString().padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        }
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>
