@@ -762,8 +762,11 @@
             // Listen to Firebase real-time updates
             onValue(lotteryRef, (snapshot) => {
                 const firebaseData = snapshot.val();
+                console.log('Firebase data received:', firebaseData);
                 if (firebaseData) {
                     data = firebaseData;
+                    // Sync to localStorage as backup
+                    localStorage.setItem('lottery_data', JSON.stringify(data));
                 } else {
                     // Load from localStorage as fallback
                     loadFromLocal();
@@ -773,6 +776,11 @@
                 if (data.remainingItems.length > 0) {
                     buildSlotItems(true);
                 }
+            }, (error) => {
+                console.error('Firebase error:', error);
+                // Load from localStorage on error
+                loadFromLocal();
+                updateUI();
             });
         }
 
@@ -792,7 +800,16 @@
 
         // Save to Firebase (real-time sync)
         function saveToFirebase() {
-            set(lotteryRef, data);
+            console.log('Saving to Firebase:', data);
+            set(lotteryRef, data)
+                .then(() => {
+                    console.log('Data saved successfully');
+                    showSyncStatus('已同步');
+                })
+                .catch((error) => {
+                    console.error('Save failed:', error);
+                    showSyncStatus('同步失败');
+                });
             // Also save to localStorage as backup
             localStorage.setItem('lottery_data', JSON.stringify(data));
         }
@@ -870,7 +887,7 @@
         // Start draw
         let isRolling = false;
 
-        function startDraw() {
+        async function startDraw() {
             if (isRolling || data.remainingItems.length === 0) return;
             
             isRolling = true;
@@ -885,6 +902,29 @@
             // Ensure slot items are built (with shuffle on each draw start)
             if (document.querySelectorAll('.slot-item').length === 0) {
                 buildSlotItems(true);
+            }
+
+            // Get latest data from Firebase before drawing
+            try {
+                const snapshot = await get(lotteryRef);
+                if (snapshot.exists()) {
+                    data = snapshot.val();
+                    updateUI();
+                    buildSlotItems(true);
+                }
+            } catch (e) {
+                console.error('Failed to get latest data:', e);
+            }
+
+            // Check again after sync
+            if (data.remainingItems.length === 0) {
+                isRolling = false;
+                drawBtn.disabled = false;
+                drawBtn.classList.remove('rolling');
+                drawBtn.textContent = '开始抽签';
+                slotContainer.classList.remove('rolling');
+                alert('没有可抽的选项了');
+                return;
             }
 
             // Determine winner from original data
@@ -1043,7 +1083,7 @@
             });
         }
 
-        function finishDraw(winner, winIndex) {
+        async function finishDraw(winner, winIndex) {
             isRolling = false;
             drawBtn.classList.remove('rolling');
             slotContainer.classList.remove('rolling');
@@ -1054,12 +1094,39 @@
             resultItem.textContent = winner;
             resultContainer.classList.add('show');
 
-            // Update data
-            data.remainingItems.splice(winIndex, 1);
-            data.history.unshift({
-                item: winner,
-                time: formatTime(new Date())
-            });
+            // Get latest data from Firebase to avoid overwriting
+            try {
+                const snapshot = await get(lotteryRef);
+                if (snapshot.exists()) {
+                    const latestData = snapshot.val();
+                    // Merge: remove the winner from latest remaining items
+                    const winnerIndex = latestData.remainingItems.indexOf(winner);
+                    if (winnerIndex !== -1) {
+                        latestData.remainingItems.splice(winnerIndex, 1);
+                    }
+                    latestData.history.unshift({
+                        item: winner,
+                        time: formatTime(new Date())
+                    });
+                    data = latestData;
+                } else {
+                    // Fallback to local data
+                    data.remainingItems.splice(winIndex, 1);
+                    data.history.unshift({
+                        item: winner,
+                        time: formatTime(new Date())
+                    });
+                }
+            } catch (e) {
+                console.error('Failed to sync data:', e);
+                // Fallback to local update
+                data.remainingItems.splice(winIndex, 1);
+                data.history.unshift({
+                    item: winner,
+                    time: formatTime(new Date())
+                });
+            }
+            
             saveToFirebase();
             updateUI();
 
@@ -1211,13 +1278,23 @@
         }
 
         // Save settings
-        function saveSettings() {
+        async function saveSettings() {
             const input = settingsInput.value.trim();
             const items = input.split('\n').map(s => s.trim()).filter(s => s.length > 0);
             
             if (items.length === 0) {
                 alert('请至少输入一个选项');
                 return;
+            }
+
+            // Get latest data first
+            try {
+                const snapshot = await get(lotteryRef);
+                if (snapshot.exists()) {
+                    data = snapshot.val();
+                }
+            } catch (e) {
+                console.error('Failed to get latest data:', e);
             }
 
             data.lotteryItems = items;
@@ -1236,7 +1313,7 @@
         }
 
         // Restart
-        function restart() {
+        async function restart() {
             if (data.lotteryItems.length === 0) {
                 alert('请先设置抽签内容');
                 return;
@@ -1244,6 +1321,16 @@
 
             if (!confirm('确定要重新开始吗？这将清除所有抽签记录。')) {
                 return;
+            }
+
+            // Get latest data first
+            try {
+                const snapshot = await get(lotteryRef);
+                if (snapshot.exists()) {
+                    data = snapshot.val();
+                }
+            } catch (e) {
+                console.error('Failed to get latest data:', e);
             }
 
             data.remainingItems = [...data.lotteryItems];
@@ -1267,7 +1354,7 @@
 
         // Initialize on load
         init();
-        
+
         // Expose functions to global scope for onclick handlers
         window.startDraw = startDraw;
         window.toggleSection = toggleSection;
@@ -1275,6 +1362,7 @@
         window.closeSettings = closeSettings;
         window.saveSettings = saveSettings;
         window.restart = restart;
+        window.saveToFirebase = saveToFirebase;
     </script>
 </body>
 </html>
