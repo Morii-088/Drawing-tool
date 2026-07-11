@@ -1267,6 +1267,14 @@
 
         // Initialize on load
         init();
+
+                // Expose functions to global scope for onclick handlers
+        window.startDraw = startDraw;
+        window.toggleSection = toggleSection;
+        window.openSettings = openSettings;
+        window.closeSettings = closeSettings;
+        window.saveSettings = saveSettings;
+        window.restart = restart;
     </script>
 </body>
 </html>
